@@ -44,6 +44,17 @@ cp .env.example .env.local
 
 Add Supabase credentials to enable authenticated trip saving. Add Amadeus credentials to enable live flight searches; without them JourneyForge uses normalized demo data through the same provider interface.
 
+## Authentication
+
+JourneyForge can be used without an account. Signing in is optional and only required to save trips.
+
+Supabase Auth setup:
+
+- Enable email magic links.
+- Optional: enable the Google provider for OAuth sign-in.
+- Set the Site URL to `https://journeyforge.vercel.app`.
+- Add redirect URLs for `https://journeyforge.vercel.app/auth/callback` and `http://localhost:3000/auth/callback`.
+
 ## Database
 
 Apply `supabase/schema.sql` to a Supabase project to create the `trips` table and row-level security policies.

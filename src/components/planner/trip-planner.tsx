@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { User } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -18,6 +19,7 @@ import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
+import { AuthPanel } from "@/components/auth/auth-panel";
 import { tripSearchSchema, type TripSearchInput } from "@/lib/travel/schemas";
 import type { FlightOption, StayOption, TripSearchResult } from "@/lib/travel/types";
 
@@ -100,7 +102,7 @@ function FlightCard({
           </div>
           <p className="mt-2 text-xl font-semibold">{flight.departureTime} - {flight.arrivalTime}</p>
           <p className="mt-1 text-sm text-muted">
-            {flight.route} · {flight.duration} · {flight.stops === 0 ? "Direct" : `${flight.stops} stop`}
+            {flight.route} - {flight.duration} - {flight.stops === 0 ? "Direct" : `${flight.stops} stop`}
           </p>
         </div>
         <div className="text-right">
@@ -133,7 +135,7 @@ function StayCard({
           </div>
           <p className="mt-2 text-xl font-semibold">{stay.name}</p>
           <p className="mt-1 text-sm text-muted">
-            {stay.nights} nights · {stay.rating.toFixed(1)} rating · {stay.amenities.join(", ")}
+            {stay.nights} nights - {stay.rating.toFixed(1)} rating - {stay.amenities.join(", ")}
           </p>
         </div>
         <div className="text-right">
@@ -151,6 +153,7 @@ export function TripPlanner() {
   const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
   const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const form = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(tripSearchSchema),
@@ -168,6 +171,10 @@ export function TripPlanner() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!currentUser) {
+        throw new Error("Sign in to save this trip. You can keep planning without an account.");
+      }
+
       const response = await fetch("/api/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -318,6 +325,10 @@ export function TripPlanner() {
               Find best options
             </button>
           </form>
+
+          <div className="mt-5">
+            <AuthPanel onUserChange={setCurrentUser} />
+          </div>
         </aside>
 
         <section className="grid gap-5 xl:grid-cols-[1fr_340px]">
@@ -445,7 +456,7 @@ export function TripPlanner() {
                   className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent bg-white px-4 font-semibold text-accent-strong transition hover:bg-teal-50 disabled:opacity-60"
                 >
                   {saveMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  Save trip
+                  {currentUser ? "Save trip" : "Sign in to save"}
                 </button>
 
                 {saveMessage && <p className="text-sm text-muted">{saveMessage}</p>}
