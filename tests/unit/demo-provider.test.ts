@@ -8,8 +8,8 @@ describe("demoTravelProvider", () => {
     startDate: "2026-07-10",
     endDate: "2026-07-17",
     travelers: 2,
+    kids: 1,
     budget: 2400,
-    vibe: "balanced" as const,
   };
 
   it("returns normalized flight options with booking links", async () => {
@@ -26,4 +26,3 @@ describe("demoTravelProvider", () => {
     expect(stays[0].nights).toBe(7);
   });
 });
-

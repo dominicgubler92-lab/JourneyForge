@@ -9,8 +9,8 @@ describe("tripSearchSchema", () => {
       startDate: "2026-07-10",
       endDate: "2026-07-17",
       travelers: 2,
+      kids: 1,
       budget: 2400,
-      vibe: "balanced",
     });
 
     expect(result.success).toBe(true);
@@ -23,10 +23,9 @@ describe("tripSearchSchema", () => {
       startDate: "2026-07-17",
       endDate: "2026-07-10",
       travelers: 2,
-      vibe: "balanced",
+      kids: 0,
     });
 
     expect(result.success).toBe(false);
   });
 });
-

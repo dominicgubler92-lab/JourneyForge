@@ -11,10 +11,8 @@ export const tripSearchSchema = z
     startDate: isoDate,
     endDate: isoDate,
     travelers: z.coerce.number().int().min(1).max(8),
+    kids: z.coerce.number().int().min(0).max(6).default(0),
     budget: z.coerce.number().int().min(200).max(50000).optional(),
-    vibe: z
-      .enum(["balanced", "comfort", "budget", "design", "family"])
-      .default("balanced"),
   })
   .refine((value) => value.endDate > value.startDate, {
     message: "End date must be after the start date.",
@@ -29,4 +27,3 @@ export const selectedTripSchema = z.object({
 
 export type TripSearchInput = z.infer<typeof tripSearchSchema>;
 export type SelectedTripInput = z.infer<typeof selectedTripSchema>;
-

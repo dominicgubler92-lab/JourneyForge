@@ -23,6 +23,7 @@ function bookingUrl(kind: "flight" | "stay", input: TripSearchInput, id: string)
     startDate: input.startDate,
     endDate: input.endDate,
     travelers: String(input.travelers),
+    kids: String(input.kids),
     jf_option: id,
   });
 
@@ -34,7 +35,8 @@ export const demoTravelProvider: TravelProvider = {
 
   async searchFlights(input) {
     const currency = currencyFor(input);
-    const base = input.vibe === "budget" ? 180 : input.vibe === "comfort" ? 320 : 240;
+    const base = 240;
+    const passengerFactor = input.travelers + input.kids * 0.7;
 
     return [
       {
@@ -46,7 +48,7 @@ export const demoTravelProvider: TravelProvider = {
         arrivalTime: "11:10",
         duration: "2h 35m",
         stops: 0,
-        price: { amount: base + input.travelers * 55, currency },
+        price: { amount: Math.round(base + passengerFactor * 55), currency },
         score: 94,
         bookingLink: {
           label: "Open flight booking",
@@ -63,7 +65,7 @@ export const demoTravelProvider: TravelProvider = {
         arrivalTime: "16:45",
         duration: "4h 25m",
         stops: 1,
-        price: { amount: base - 45 + input.travelers * 44, currency },
+        price: { amount: Math.round(base - 45 + passengerFactor * 44), currency },
         score: 87,
         bookingLink: {
           label: "Open flight booking",
@@ -80,7 +82,7 @@ export const demoTravelProvider: TravelProvider = {
         arrivalTime: "22:15",
         duration: "4h 10m",
         stops: 1,
-        price: { amount: base + 30 + input.travelers * 50, currency },
+        price: { amount: Math.round(base + 30 + passengerFactor * 50), currency },
         score: 82,
         bookingLink: {
           label: "Open flight booking",
@@ -94,8 +96,7 @@ export const demoTravelProvider: TravelProvider = {
   async searchStays(input) {
     const nights = daysBetween(input.startDate, input.endDate);
     const currency = currencyFor(input);
-    const nightlyBase =
-      input.vibe === "budget" ? 105 : input.vibe === "design" ? 195 : 150;
+    const nightlyBase = input.kids > 0 ? 168 : 150;
 
     return [
       {
