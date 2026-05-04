@@ -11,26 +11,30 @@ create table if not exists public.trips (
   created_at timestamptz not null default now()
 );
 
+create index if not exists trips_user_id_idx on public.trips(user_id);
+
 alter table public.trips enable row level security;
 
 create policy "Users can read their own trips"
   on public.trips
   for select
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
 create policy "Users can create their own trips"
   on public.trips
   for insert
-  with check (auth.uid() = user_id);
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their own trips"
   on public.trips
   for update
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 
 create policy "Users can delete their own trips"
   on public.trips
   for delete
-  using (auth.uid() = user_id);
+  using ((select auth.uid()) = user_id);
 
+revoke execute on function public.rls_auto_enable() from public;
+grant execute on function public.rls_auto_enable() to service_role;
