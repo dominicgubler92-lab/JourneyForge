@@ -22,11 +22,41 @@ function latLngToVector3(latitude: number, longitude: number, radius = 2) {
   );
 }
 
-function focusRotation(latitude: number, longitude: number) {
-  return {
-    x: THREE.MathUtils.degToRad(latitude * 0.72),
-    y: THREE.MathUtils.degToRad(-longitude - 18),
-  };
+function focusQuaternion(latitude: number, longitude: number) {
+  const airportVector = latLngToVector3(latitude, longitude, 1).normalize();
+  const cameraFacingVector = new THREE.Vector3(0, 0, 1);
+  return new THREE.Quaternion().setFromUnitVectors(airportVector, cameraFacingVector);
+}
+
+function makeLabelTexture(label: string, highlight: boolean) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  const scale = window.devicePixelRatio || 1;
+  canvas.width = 260 * scale;
+  canvas.height = 76 * scale;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return null;
+  }
+
+  context.scale(scale, scale);
+  context.font = highlight ? "700 24px sans-serif" : "700 20px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = highlight ? "rgba(246,239,225,0.96)" : "rgba(242,193,78,0.94)";
+  context.strokeStyle = "rgba(7,28,31,0.9)";
+  context.lineWidth = 5;
+  context.strokeText(label, 130, 38);
+  context.fillText(label, 130, 38);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function Pin({
@@ -47,6 +77,29 @@ function Pin({
       <sphereGeometry args={[0.045 * scale, 18, 18]} />
       <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} />
     </mesh>
+  );
+}
+
+function CityLabel({
+  latitude,
+  longitude,
+  label,
+  highlight = false,
+}: {
+  latitude: number;
+  longitude: number;
+  label: string;
+  highlight?: boolean;
+}) {
+  const texture = useMemo(() => makeLabelTexture(label, highlight), [label, highlight]);
+  const position = latLngToVector3(latitude, longitude, 2.34);
+
+  if (!texture) return null;
+
+  return (
+    <sprite position={position} scale={highlight ? [0.92, 0.27, 1] : [0.72, 0.22, 1]}>
+      <spriteMaterial map={texture} transparent depthTest depthWrite={false} />
+    </sprite>
   );
 }
 
@@ -77,19 +130,21 @@ function Arc({ from, to }: { from: AirportOption; to: DealOption }) {
 
 function GlobeScene({ origin, deals }: DealGlobeProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const target = origin ? focusRotation(origin.latitude, origin.longitude) : { x: 0.18, y: -0.45 };
+  const targetQuaternion = useMemo(
+    () => (origin ? focusQuaternion(origin.latitude, origin.longitude) : null),
+    [origin],
+  );
   const previewAirports = deals.length === 0 ? europeAirports.slice(0, 12) : [];
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    if (!origin) {
-      groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, target.x, delta * 1.2);
+
+    if (!targetQuaternion) {
       groupRef.current.rotation.y += delta * 0.12;
       return;
     }
 
-    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, target.x, delta * 1.8);
-    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, target.y, delta * 1.8);
+    groupRef.current.quaternion.slerp(targetQuaternion, Math.min(1, delta * 2.4));
   });
 
   return (
@@ -112,24 +167,45 @@ function GlobeScene({ origin, deals }: DealGlobeProps) {
           <meshBasicMaterial color="#8ed6c9" wireframe transparent opacity={0.08} />
         </mesh>
         {origin && <Pin latitude={origin.latitude} longitude={origin.longitude} color="#f6efe1" scale={1.5} />}
+        {origin && (
+          <CityLabel
+            latitude={origin.latitude}
+            longitude={origin.longitude}
+            label={`${origin.cityName} ${origin.iataCode}`}
+            highlight
+          />
+        )}
         {origin && deals.map((deal) => <Arc key={`arc-${deal.id}`} from={origin} to={deal} />)}
         {previewAirports.map((airport) => (
-          <Pin
-            key={`preview-${airport.iataCode}`}
-            latitude={airport.latitude}
-            longitude={airport.longitude}
-            color={airport.iataCode === origin?.iataCode ? "#f6efe1" : "#f2c14e"}
-            scale={airport.iataCode === origin?.iataCode ? 1.45 : 0.82}
-          />
+          <group key={`preview-${airport.iataCode}`}>
+            <Pin
+              latitude={airport.latitude}
+              longitude={airport.longitude}
+              color={airport.iataCode === origin?.iataCode ? "#f6efe1" : "#f2c14e"}
+              scale={airport.iataCode === origin?.iataCode ? 1.45 : 0.82}
+            />
+            <CityLabel
+              latitude={airport.latitude}
+              longitude={airport.longitude}
+              label={`${airport.cityName} ${airport.iataCode}`}
+              highlight={airport.iataCode === origin?.iataCode}
+            />
+          </group>
         ))}
         {deals.map((deal) => (
-          <Pin
-            key={deal.id}
-            latitude={deal.latitude}
-            longitude={deal.longitude}
-            color="#f2c14e"
-            scale={0.95}
-          />
+          <group key={deal.id}>
+            <Pin
+              latitude={deal.latitude}
+              longitude={deal.longitude}
+              color="#f2c14e"
+              scale={0.95}
+            />
+            <CityLabel
+              latitude={deal.latitude}
+              longitude={deal.longitude}
+              label={`${deal.destinationName} ${deal.destinationIata}`}
+            />
+          </group>
         ))}
       </group>
     </>

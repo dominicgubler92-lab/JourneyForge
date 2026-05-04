@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { DealGlobe } from "@/components/globe/deal-globe";
 import type { AirportOption, DealOption, DealSearchResult } from "@/lib/travel/types";
@@ -70,6 +70,8 @@ const copy = {
     demo: "Demo",
     providerReady: "Amadeus ready",
     providerDemo: "Demo fallback",
+    demoCaveat: "Demo fallback is sorted by estimated sample fares. Add Amadeus credentials for live inspiration prices.",
+    cheapestNow: "Cheapest visible deals",
     language: "Language",
     origin: "Origin locked",
   },
@@ -98,6 +100,8 @@ const copy = {
     demo: "Demo",
     providerReady: "Amadeus bereit",
     providerDemo: "Demo-Fallback",
+    demoCaveat: "Demo-Fallback ist nach geschaetzten Beispieldaten sortiert. Fuer echte Inspiration-Preise Amadeus-Zugangsdaten setzen.",
+    cheapestNow: "Guenstigste sichtbare Deals",
     language: "Sprache",
     origin: "Start fixiert",
   },
@@ -237,6 +241,7 @@ export function TripPlanner() {
   const [travelers, setTravelers] = useState(2);
   const [budget, setBudget] = useState(1200);
   const [airportOpen, setAirportOpen] = useState(false);
+  const globePanelRef = useRef<HTMLDivElement>(null);
   const labels = copy[language];
 
   const airportMutation = useMutation({
@@ -295,6 +300,13 @@ export function TripPlanner() {
       travelers,
       budget,
     });
+  }
+
+  function selectAirport(airport: AirportOption) {
+    setSelectedAirport(airport);
+    setAirportQuery(`${airport.cityName} (${airport.iataCode})`);
+    setAirportOpen(false);
+    globePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   return (
@@ -366,11 +378,7 @@ export function TripPlanner() {
                         <button
                           key={airport.id}
                           type="button"
-                          onClick={() => {
-                            setSelectedAirport(airport);
-                            setAirportQuery(`${airport.cityName} (${airport.iataCode})`);
-                            setAirportOpen(false);
-                          }}
+                          onClick={() => selectAirport(airport)}
                           className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-3 text-left transition hover:bg-[#e8f4ef]"
                         >
                           <span>
@@ -474,7 +482,10 @@ export function TripPlanner() {
           </div>
         </motion.div>
 
-        <div className="relative min-h-[460px] overflow-hidden rounded-lg border border-white/12 bg-[#0d262a]/55 shadow-2xl shadow-black/20 lg:min-h-[680px]">
+        <div
+          ref={globePanelRef}
+          className="relative min-h-[460px] overflow-hidden rounded-lg border border-white/12 bg-[#0d262a]/55 shadow-2xl shadow-black/20 lg:min-h-[680px]"
+        >
           <DealGlobe origin={origin} deals={deals} />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5">
             <div className="rounded-lg border border-white/12 bg-[#071c1f]/76 p-4 backdrop-blur">
@@ -488,6 +499,28 @@ export function TripPlanner() {
               <p className="mt-2 text-sm text-white/58">
                 {origin ? `${origin.cityName} (${origin.iataCode})` : labels.emptyDeals}
               </p>
+              {deals.length > 0 && (
+                <div className="mt-4 border-t border-white/10 pt-3">
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-white/45">
+                    {labels.cheapestNow}
+                  </p>
+                  <div className="space-y-2">
+                    {deals.slice(0, 3).map((deal) => (
+                      <div key={`compact-${deal.id}`} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="font-semibold text-white">
+                          {deal.destinationName} ({deal.destinationIata})
+                        </span>
+                        <span className="font-semibold text-[#f2c14e]">
+                          {formatMoney(deal.price.amount, deal.price.currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {dealMutation.data?.providerMetadata.mode === "demo" && (
+                    <p className="mt-3 text-xs leading-5 text-white/50">{labels.demoCaveat}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
