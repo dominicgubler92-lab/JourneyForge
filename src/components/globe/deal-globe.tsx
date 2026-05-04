@@ -1,8 +1,12 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
+import { geoEquirectangular, geoPath } from "d3-geo";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import type { GeometryObject, Objects, Topology } from "topojson-specification";
+import { feature, mesh } from "topojson-client";
+import countries from "world-atlas/countries-110m.json";
 import { europeAirports } from "@/lib/travel/providers/airport-data";
 import type { AirportOption, DealOption } from "@/lib/travel/types";
 
@@ -10,6 +14,44 @@ type DealGlobeProps = {
   origin: AirportOption | null;
   deals: DealOption[];
 };
+
+type WorldObjects = {
+  countries: GeometryObject;
+  land: GeometryObject;
+} & Objects;
+type WorldTopology = Topology<WorldObjects>;
+
+const oceanLabels = [
+  { label: "ATLANTIC", x: 1010, y: 440 },
+  { label: "INDIAN OCEAN", x: 1320, y: 640 },
+  { label: "PACIFIC", x: 290, y: 520 },
+];
+
+const majorRivers = [
+  [
+    [8.2, 46.8],
+    [7.7, 47.6],
+    [7.5, 49.8],
+    [6.7, 51],
+    [4.1, 51.9],
+  ],
+  [
+    [8.1, 48.1],
+    [11.6, 48.7],
+    [14.4, 48.2],
+    [16.4, 48.2],
+    [19.1, 47.5],
+    [23.6, 45.2],
+    [29.6, 45.1],
+  ],
+  [
+    [31.2, 30],
+    [31.5, 25.7],
+    [32.4, 15.6],
+    [30.8, 7.3],
+    [31.6, -2.3],
+  ],
+] satisfies Array<Array<[number, number]>>;
 
 function latLngToVector3(latitude: number, longitude: number, radius = 2) {
   const phi = (90 - latitude) * (Math.PI / 180);
@@ -55,6 +97,91 @@ function makeLabelTexture(label: string, highlight: boolean) {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function makeEarthTexture() {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 2048;
+  canvas.height = 1024;
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return null;
+  }
+
+  const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, "#0b3d4a");
+  gradient.addColorStop(0.52, "#0a5762");
+  gradient.addColorStop(1, "#082f3c");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.globalAlpha = 0.22;
+  context.fillStyle = "#8cd3d0";
+  for (let y = 80; y < canvas.height; y += 105) {
+    context.fillRect(0, y, canvas.width, 1);
+  }
+  for (let x = 120; x < canvas.width; x += 150) {
+    context.fillRect(x, 0, 1, canvas.height);
+  }
+  context.globalAlpha = 1;
+
+  const projection = geoEquirectangular()
+    .scale(canvas.width / (2 * Math.PI))
+    .translate([canvas.width / 2, canvas.height / 2]);
+  const path = geoPath(projection, context);
+  const topology = countries as unknown as WorldTopology;
+  const land = feature(topology, topology.objects.land);
+  const borders = mesh(topology, topology.objects.countries, (a, b) => a !== b);
+
+  context.beginPath();
+  path(land);
+  context.fillStyle = "#2f765c";
+  context.fill();
+
+  context.beginPath();
+  path(land);
+  context.strokeStyle = "rgba(214, 232, 187, 0.24)";
+  context.lineWidth = 1.6;
+  context.stroke();
+
+  context.beginPath();
+  path(borders);
+  context.strokeStyle = "rgba(246, 239, 225, 0.32)";
+  context.lineWidth = 0.9;
+  context.stroke();
+
+  context.strokeStyle = "rgba(126, 210, 223, 0.78)";
+  context.lineWidth = 2.4;
+  majorRivers.forEach((river) => {
+    context.beginPath();
+    river.forEach(([longitude, latitude], index) => {
+      const point = projection([longitude, latitude]);
+      if (!point) return;
+      if (index === 0) {
+        context.moveTo(point[0], point[1]);
+      } else {
+        context.lineTo(point[0], point[1]);
+      }
+    });
+    context.stroke();
+  });
+
+  context.font = "700 24px sans-serif";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "rgba(202, 231, 229, 0.34)";
+  oceanLabels.forEach((label) => context.fillText(label.label, label.x, label.y));
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
 }
@@ -130,6 +257,7 @@ function Arc({ from, to }: { from: AirportOption; to: DealOption }) {
 
 function GlobeScene({ origin, deals }: DealGlobeProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const earthTexture = useMemo(() => makeEarthTexture(), []);
   const targetQuaternion = useMemo(
     () => (origin ? focusQuaternion(origin.latitude, origin.longitude) : null),
     [origin],
@@ -155,16 +283,17 @@ function GlobeScene({ origin, deals }: DealGlobeProps) {
         <mesh>
           <sphereGeometry args={[2, 96, 96]} />
           <meshStandardMaterial
-            color="#123f45"
+            map={earthTexture ?? undefined}
+            color={earthTexture ? "#ffffff" : "#123f45"}
             roughness={0.82}
             metalness={0.12}
-            emissive="#06292d"
-            emissiveIntensity={0.32}
+            emissive="#032327"
+            emissiveIntensity={0.12}
           />
         </mesh>
         <mesh>
           <sphereGeometry args={[2.012, 48, 48]} />
-          <meshBasicMaterial color="#8ed6c9" wireframe transparent opacity={0.08} />
+          <meshBasicMaterial color="#dff8f0" wireframe transparent opacity={0.045} />
         </mesh>
         {origin && <Pin latitude={origin.latitude} longitude={origin.longitude} color="#f6efe1" scale={1.5} />}
         {origin && (
