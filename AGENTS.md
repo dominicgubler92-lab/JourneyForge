@@ -1,5 +1,9 @@
 # Agent Instructions
 
+<!-- BEGIN:nextjs-agent-rules -->
+This project uses a current Next.js App Router stack. When changing framework-level behavior, prefer the installed docs and generated types over older assumptions.
+<!-- END:nextjs-agent-rules -->
+
 This file gives coding agents shared guidance for working on JourneyForge.
 
 ## Project Intent
@@ -30,8 +34,7 @@ JourneyForge is a practical travel planning app. The product should help users o
 
 ## Open Decisions
 
-- Tech stack
-- Data model
-- Authentication needs
-- Whether the first version is local-only, single-user, or collaborative
+- Production provider credentials
+- Supabase project URL and anon key
+- Affiliate partner accounts for booking redirects
 
