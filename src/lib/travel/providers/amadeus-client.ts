@@ -3,6 +3,28 @@ type AmadeusToken = {
   expires_in: number;
 };
 
+export function getAmadeusBaseUrl() {
+  return process.env.AMADEUS_BASE_URL ?? "https://test.api.amadeus.com";
+}
+
+export function hasAmadeusCredentials() {
+  return Boolean(process.env.AMADEUS_CLIENT_ID && process.env.AMADEUS_CLIENT_SECRET);
+}
+
+export function getAmadeusEnvironment() {
+  const baseUrl = getAmadeusBaseUrl();
+
+  if (baseUrl.includes("test.api.amadeus.com")) {
+    return "test";
+  }
+
+  if (baseUrl.includes("api.amadeus.com")) {
+    return "production";
+  }
+
+  return "custom";
+}
+
 export async function getAmadeusToken() {
   const clientId = process.env.AMADEUS_CLIENT_ID;
   const clientSecret = process.env.AMADEUS_CLIENT_SECRET;
@@ -11,7 +33,7 @@ export async function getAmadeusToken() {
     return null;
   }
 
-  const response = await fetch("https://test.api.amadeus.com/v1/security/oauth2/token", {
+  const response = await fetch(`${getAmadeusBaseUrl()}/v1/security/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -30,7 +52,7 @@ export async function getAmadeusToken() {
 }
 
 export async function amadeusFetch(path: string, token: string, init?: RequestInit) {
-  return fetch(`https://test.api.amadeus.com${path}`, {
+  return fetch(`${getAmadeusBaseUrl()}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,

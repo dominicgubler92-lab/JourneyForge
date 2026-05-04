@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   Globe2,
@@ -22,6 +22,16 @@ import { DealGlobe } from "@/components/globe/deal-globe";
 import type { AirportOption, DealOption, DealSearchResult } from "@/lib/travel/types";
 
 type Language = "en" | "de";
+type ProviderStatus = {
+  activeModeHint: "live-ready" | "demo-fallback";
+  providers: Array<{
+    id: string;
+    label: string;
+    configured: boolean;
+    environment: "test" | "production" | "custom";
+    modeHint: "live-ready" | "demo-fallback";
+  }>;
+};
 
 const defaultAirport: AirportOption = {
   id: "airport-zrh",
@@ -58,6 +68,8 @@ const copy = {
     score: "Score",
     live: "Live",
     demo: "Demo",
+    providerReady: "Amadeus ready",
+    providerDemo: "Demo fallback",
     language: "Language",
     origin: "Origin locked",
   },
@@ -84,6 +96,8 @@ const copy = {
     score: "Score",
     live: "Live",
     demo: "Demo",
+    providerReady: "Amadeus bereit",
+    providerDemo: "Demo-Fallback",
     language: "Sprache",
     origin: "Start fixiert",
   },
@@ -108,6 +122,16 @@ async function fetchAirports(query: string) {
 
   const payload = (await response.json()) as { airports: AirportOption[] };
   return payload.airports;
+}
+
+async function fetchProviderStatus() {
+  const response = await fetch("/api/providers/status");
+
+  if (!response.ok) {
+    throw new Error("Provider status unavailable.");
+  }
+
+  return (await response.json()) as ProviderStatus;
 }
 
 async function searchDeals(input: {
@@ -227,6 +251,11 @@ export function TripPlanner() {
   const dealMutation = useMutation({
     mutationFn: searchDeals,
   });
+  const providerStatusQuery = useQuery({
+    queryKey: ["provider-status"],
+    queryFn: fetchProviderStatus,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     const query = airportQuery.trim();
@@ -244,6 +273,7 @@ export function TripPlanner() {
 
   const deals = dealMutation.data?.deals ?? [];
   const modeLabel = dealMutation.data?.providerMetadata.mode === "live" ? labels.live : labels.demo;
+  const providerIsReady = providerStatusQuery.data?.activeModeHint === "live-ready";
   const origin = dealMutation.data?.origin ?? selectedAirport ?? defaultAirport;
   const airportQueryLength = airportQuery.trim().length;
   const shouldShowNoAirports =
@@ -407,6 +437,15 @@ export function TripPlanner() {
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-white/54">
                   <span className="rounded-md border border-white/12 px-2 py-1">{labels.timeframe}</span>
                   <span className="rounded-md border border-white/12 px-2 py-1">{labels.timeframeValue}</span>
+                  <span
+                    className={`rounded-md border px-2 py-1 ${
+                      providerIsReady
+                        ? "border-[#f2c14e]/55 text-[#f2c14e]"
+                        : "border-white/12 text-white/54"
+                    }`}
+                  >
+                    {providerIsReady ? labels.providerReady : labels.providerDemo}
+                  </span>
                   {selectedAirport && (
                     <span className="rounded-md border border-white/12 px-2 py-1">
                       {labels.origin}: {selectedAirport.iataCode}

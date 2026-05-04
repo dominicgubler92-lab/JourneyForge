@@ -50,6 +50,8 @@ cp .env.example .env.local
 
 Add Supabase credentials to enable optional authentication. Add Amadeus credentials to enable live airport and flight inspiration searches; without them JourneyForge uses normalized demo data through the same provider interface.
 
+`AMADEUS_BASE_URL` defaults to `https://test.api.amadeus.com`. Use the production Amadeus base URL only after production access is approved.
+
 ## Authentication
 
 JourneyForge can be used without an account. Signing in is optional and only required to save trips.
