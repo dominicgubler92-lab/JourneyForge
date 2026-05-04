@@ -1,13 +1,10 @@
-import type { TravelProvider } from "@/lib/travel/types";
 import type { TripSearchInput } from "@/lib/travel/schemas";
+import type { TravelProvider } from "@/lib/travel/types";
 
 const currencies = ["CHF", "EUR", "USD"] as const;
 
 function currencyFor(input: TripSearchInput) {
-  return input.origin.toLowerCase().includes("zurich") ||
-    input.origin.toLowerCase().includes("zürich")
-    ? currencies[0]
-    : currencies[1];
+  return input.origin.toLowerCase().includes("zurich") ? currencies[0] : currencies[1];
 }
 
 function daysBetween(startDate: string, endDate: string) {
@@ -23,7 +20,6 @@ function bookingUrl(kind: "flight" | "stay", input: TripSearchInput, id: string)
     startDate: input.startDate,
     endDate: input.endDate,
     travelers: String(input.travelers),
-    kids: String(input.kids),
     jf_option: id,
   });
 
@@ -36,7 +32,7 @@ export const demoTravelProvider: TravelProvider = {
   async searchFlights(input) {
     const currency = currencyFor(input);
     const base = 240;
-    const passengerFactor = input.travelers + input.kids * 0.7;
+    const passengerFactor = input.travelers;
 
     return [
       {
@@ -96,7 +92,7 @@ export const demoTravelProvider: TravelProvider = {
   async searchStays(input) {
     const nights = daysBetween(input.startDate, input.endDate);
     const currency = currencyFor(input);
-    const nightlyBase = input.kids > 0 ? 168 : 150;
+    const nightlyBase = 150;
 
     return [
       {
@@ -138,7 +134,7 @@ export const demoTravelProvider: TravelProvider = {
         area: "Residential edge",
         nights,
         rating: 4.5,
-        amenities: ["Quiet rooms", "Late check-in", "Family friendly"],
+        amenities: ["Quiet rooms", "Late check-in", "Easy check-in"],
         price: { amount: Math.round((nightlyBase - 24) * nights), currency },
         score: 84,
         bookingLink: {

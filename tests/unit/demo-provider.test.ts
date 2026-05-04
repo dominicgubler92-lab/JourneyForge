@@ -8,7 +8,6 @@ describe("demoTravelProvider", () => {
     startDate: "2026-07-10",
     endDate: "2026-07-17",
     travelers: 2,
-    kids: 1,
     budget: 2400,
   };
 
@@ -17,6 +16,7 @@ describe("demoTravelProvider", () => {
 
     expect(flights.length).toBeGreaterThan(0);
     expect(flights[0].bookingLink.url).toContain("google.com/travel/flights");
+    expect(flights[0].bookingLink.url).not.toContain("kids=");
   });
 
   it("returns normalized stay options with calculated nights", async () => {

@@ -1,13 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("searches and assembles a trip", async ({ page }) => {
+test("searches flexible flight deals", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "Search trip" }).click();
+  await expect(page.getByLabel("Airport")).toBeVisible();
+  await expect(page.getByText("Next 3 months, 3-7 nights").first()).toBeVisible();
+  await expect(page.getByText("Travelers").first()).toBeVisible();
+  await expect(page.getByText("Budget").first()).toBeVisible();
 
-  await expect(page.getByText("Flight options")).toBeVisible();
-  await expect(page.getByText("Stay options")).toBeVisible();
-  await expect(page.getByText("Estimated total")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Open flight booking/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Open hotel booking|Open stay booking/ })).toBeVisible();
+  await page.getByRole("button", { name: "Find deals" }).click();
+
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator('a[href*="google.com/travel/flights"]').first()).toBeVisible();
 });

@@ -1,13 +1,18 @@
 # JourneyForge
 
-JourneyForge is a travel planning tool for shaping ideas, routes, bookings, budgets, and notes into one clear trip plan.
+JourneyForge is a travel discovery tool for finding flexible, low-price trips from a chosen departure airport.
 
 ## Vision
 
-The goal is to make travel planning feel calm and structured instead of scattered across chats, maps, documents, and browser tabs.
+The goal is to make early travel planning feel exploratory and practical: choose where you start, set a rough budget, and compare the cheapest destinations before moving to external booking pages.
 
 ## Planned Features
 
+- Airport autocomplete for departure search
+- Flexible deal search for the next three months
+- Budget-based flight deal cards
+- 3D globe with origin and destination pins
+- Optional authentication for later saved-trip features
 - Trip overview with destinations, dates, travelers, and status
 - Day-by-day itinerary planning
 - Route and transport notes
@@ -20,10 +25,11 @@ The goal is to make travel planning feel calm and structured instead of scattere
 
 - Next.js App Router, React, and TypeScript
 - Tailwind CSS with Radix/shadcn-style primitives
+- Three.js and React Three Fiber for the interactive globe
 - TanStack Query, React Hook Form, and Zod
 - Supabase Auth and Postgres for saved trips
 - Vercel deployment target
-- Amadeus-ready provider adapter with a demo fallback
+- Amadeus airport and flight inspiration adapters with demo fallbacks
 
 ## Getting Started
 
@@ -42,7 +48,7 @@ Optional environment variables:
 cp .env.example .env.local
 ```
 
-Add Supabase credentials to enable authenticated trip saving. Add Amadeus credentials to enable live flight searches; without them JourneyForge uses normalized demo data through the same provider interface.
+Add Supabase credentials to enable optional authentication. Add Amadeus credentials to enable live airport and flight inspiration searches; without them JourneyForge uses normalized demo data through the same provider interface.
 
 ## Authentication
 

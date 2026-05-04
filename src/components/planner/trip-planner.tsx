@@ -1,244 +1,139 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { User } from "@supabase/supabase-js";
 import { useMutation } from "@tanstack/react-query";
 import {
-  Baby,
-  CalendarDays,
-  ExternalLink,
+  ArrowUpRight,
   Globe2,
-  Hotel,
   Loader2,
   MapPin,
+  Minus,
   Plane,
-  Save,
+  Plus,
+  Radar,
   Search,
   Sparkles,
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import type { z } from "zod";
+import { useEffect, useMemo, useState } from "react";
 import { AuthPanel } from "@/components/auth/auth-panel";
-import { tripSearchSchema, type TripSearchInput } from "@/lib/travel/schemas";
-import type { FlightOption, StayOption, TripSearchResult } from "@/lib/travel/types";
+import { DealGlobe } from "@/components/globe/deal-globe";
+import type { AirportOption, DealOption, DealSearchResult } from "@/lib/travel/types";
 
 type Language = "en" | "de";
-type FormInput = z.input<typeof tripSearchSchema>;
-type FormValues = z.output<typeof tripSearchSchema>;
 
-const defaultValues: FormValues = {
-  origin: "Zurich",
-  destination: "Lisbon",
-  startDate: "2026-07-10",
-  endDate: "2026-07-17",
-  travelers: 2,
-  kids: 0,
-  budget: 2400,
+const defaultAirport: AirportOption = {
+  id: "airport-zrh",
+  iataCode: "ZRH",
+  name: "Zurich Airport",
+  cityName: "Zurich",
+  countryName: "Switzerland",
+  latitude: 47.4581,
+  longitude: 8.5555,
+  type: "airport",
 };
 
 const copy = {
   en: {
-    planLabel: "JourneyForge",
-    title: "Plan your trip",
-    subtitle: "Start with the essentials. Compare flights and stays after search.",
-    from: "From",
-    to: "To",
-    start: "Start",
-    end: "End",
+    brand: "JourneyForge",
+    title: "Find the cheapest trip from your airport.",
+    subtitle: "Pick a departure airport, set a rough budget and scan Europe for flexible flight deals.",
+    airport: "Airport",
+    airportPlaceholder: "Search Zurich, Basel, Geneva...",
     travelers: "Travelers",
-    kids: "Kids",
     budget: "Budget",
-    search: "Search trip",
+    timeframe: "Timeframe",
+    timeframeValue: "Next 3 months, 3-7 nights",
+    search: "Find deals",
     searching: "Searching",
-    checkFields: "Please check the trip details.",
-    planningSurface: "Trip options",
-    planningHeadline: "Choose a flight and stay, then book with the provider.",
-    liveApis: "Live APIs",
-    demoFallback: "Demo fallback",
-    flights: "Flights",
-    stays: "Stays",
+    selectAirport: "Select an airport first.",
+    noAirports: "No airports found.",
+    deals: "Flight deals",
+    emptyDeals: "Search to reveal flexible flight deals.",
+    from: "from",
+    nights: "nights",
     direct: "Direct",
     stop: "stop",
-    rating: "rating",
     score: "Score",
-    summary: "Trip summary",
-    total: "Estimated total",
-    selectedFlight: "Selected flight",
-    selectedStay: "Selected stay",
-    save: "Save trip",
-    signInToSave: "Sign in to save",
-    saveLogin: "Sign in to save this trip. You can keep planning without an account.",
-    saved: "Trip saved.",
-    saveFailed: "Could not save trip.",
-    emptySummary: "Search first, then choose one flight and one stay.",
-    handoff: "Booking opens on external provider pages. JourneyForge stores your plan but does not process checkout.",
+    live: "Live",
+    demo: "Demo",
     language: "Language",
+    origin: "Origin locked",
   },
   de: {
-    planLabel: "JourneyForge",
-    title: "Reise planen",
-    subtitle: "Starte mit den wichtigsten Daten. Fluege und Unterkuenfte erscheinen nach der Suche.",
-    from: "Von",
-    to: "Nach",
-    start: "Start",
-    end: "Ende",
+    brand: "JourneyForge",
+    title: "Finde die guenstigste Reise ab deinem Flughafen.",
+    subtitle: "Waehle den Startflughafen, setze ein grobes Budget und entdecke flexible Europa-Deals.",
+    airport: "Flughafen",
+    airportPlaceholder: "Suche Zuerich, Basel, Genf...",
     travelers: "Reisende",
-    kids: "Kinder",
     budget: "Budget",
-    search: "Reise suchen",
+    timeframe: "Zeitraum",
+    timeframeValue: "Naechste 3 Monate, 3-7 Naechte",
+    search: "Deals finden",
     searching: "Sucht",
-    checkFields: "Bitte pruefe die Reisedaten.",
-    planningSurface: "Reiseoptionen",
-    planningHeadline: "Waehle Flug und Unterkunft, dann buchst du beim Anbieter.",
-    liveApis: "Live APIs",
-    demoFallback: "Demo-Daten",
-    flights: "Fluege",
-    stays: "Unterkuenfte",
+    selectAirport: "Waehle zuerst einen Flughafen.",
+    noAirports: "Keine Flughaefen gefunden.",
+    deals: "Flugdeals",
+    emptyDeals: "Starte eine Suche, um flexible Flugdeals zu sehen.",
+    from: "ab",
+    nights: "Naechte",
     direct: "Direkt",
     stop: "Stopp",
-    rating: "Bewertung",
     score: "Score",
-    summary: "Trip Uebersicht",
-    total: "Geschaetzter Gesamtpreis",
-    selectedFlight: "Ausgewaehlter Flug",
-    selectedStay: "Ausgewaehlte Unterkunft",
-    save: "Trip speichern",
-    signInToSave: "Zum Speichern anmelden",
-    saveLogin: "Melde dich an, um diesen Trip zu speichern. Planen geht auch ohne Konto.",
-    saved: "Trip gespeichert.",
-    saveFailed: "Trip konnte nicht gespeichert werden.",
-    emptySummary: "Suche zuerst und waehle dann einen Flug und eine Unterkunft.",
-    handoff: "Die Buchung oeffnet beim externen Anbieter. JourneyForge verarbeitet keine Zahlung.",
+    live: "Live",
+    demo: "Demo",
     language: "Sprache",
+    origin: "Start fixiert",
   },
 } satisfies Record<Language, Record<string, string>>;
 
 function formatMoney(amount: number, currency: string) {
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat("de-CH", {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
-  }).format(amount);
+  })
+    .format(amount)
+    .replace(/[’']/g, "'");
 }
 
-async function searchTrips(input: TripSearchInput) {
-  const response = await fetch("/api/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+async function fetchAirports(query: string) {
+  const response = await fetch(`/api/airports?query=${encodeURIComponent(query)}`);
 
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error ?? "Search failed.");
+    return [];
   }
 
-  return (await response.json()) as TripSearchResult;
+  const payload = (await response.json()) as { airports: AirportOption[] };
+  return payload.airports;
 }
 
-function OptionShell({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
+async function searchDeals(input: {
+  origin: AirportOption;
+  travelers: number;
+  budget: number;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-lg border p-4 text-left transition ${
-        active
-          ? "border-accent bg-teal-50 shadow-sm"
-          : "border-line bg-surface hover:border-accent/50"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
+  const response = await fetch("/api/deals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...input,
+      window: "next_3_months",
+      minNights: 3,
+      maxNights: 7,
+      region: "europe",
+    }),
+  });
 
-function FlightCard({
-  flight,
-  active,
-  labels,
-  onSelect,
-}: {
-  flight: FlightOption;
-  active: boolean;
-  labels: (typeof copy)[Language];
-  onSelect: () => void;
-}) {
-  return (
-    <OptionShell active={active} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-accent-strong">
-            <Plane size={16} />
-            {flight.airline}
-          </div>
-          <p className="mt-2 text-xl font-semibold">
-            {flight.departureTime} - {flight.arrivalTime}
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            {flight.route} - {flight.duration} -{" "}
-            {flight.stops === 0 ? labels.direct : `${flight.stops} ${labels.stop}`}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-semibold">
-            {formatMoney(flight.price.amount, flight.price.currency)}
-          </p>
-          <p className="text-xs font-medium text-muted">
-            {labels.score} {flight.score}
-          </p>
-        </div>
-      </div>
-    </OptionShell>
-  );
-}
+  const payload = await response.json().catch(() => ({}));
 
-function StayCard({
-  stay,
-  active,
-  labels,
-  onSelect,
-}: {
-  stay: StayOption;
-  active: boolean;
-  labels: (typeof copy)[Language];
-  onSelect: () => void;
-}) {
-  return (
-    <OptionShell active={active} onClick={onSelect}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-sm font-semibold text-accent-strong">
-            <Hotel size={16} />
-            {stay.area}
-          </div>
-          <p className="mt-2 text-xl font-semibold">{stay.name}</p>
-          <p className="mt-1 text-sm text-muted">
-            {stay.nights} nights - {stay.rating.toFixed(1)} {labels.rating} -{" "}
-            {stay.amenities.join(", ")}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-lg font-semibold">
-            {formatMoney(stay.price.amount, stay.price.currency)}
-          </p>
-          <p className="text-xs font-medium text-muted">
-            {labels.score} {stay.score}
-          </p>
-        </div>
-      </div>
-    </OptionShell>
-  );
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Deal search failed.");
+  }
+
+  return payload as DealSearchResult;
 }
 
 function LanguageSwitch({
@@ -253,9 +148,9 @@ function LanguageSwitch({
   return (
     <div
       aria-label={label}
-      className="flex h-10 items-center gap-1 rounded-lg border border-line bg-surface p-1 shadow-sm"
+      className="flex h-10 items-center gap-1 rounded-lg border border-white/12 bg-white/8 p-1 text-white shadow-sm backdrop-blur"
     >
-      <Globe2 size={15} className="ml-1 text-muted" />
+      <Globe2 size={15} className="ml-1 text-white/70" />
       {(["en", "de"] as const).map((item) => (
         <button
           key={item}
@@ -263,9 +158,7 @@ function LanguageSwitch({
           aria-pressed={language === item}
           onClick={() => setLanguage(item)}
           className={`h-8 rounded-md px-2 text-xs font-semibold transition ${
-            language === item
-              ? "bg-accent text-white"
-              : "text-muted hover:bg-white hover:text-foreground"
+            language === item ? "bg-white text-[#102a2c]" : "text-white/70 hover:bg-white/10 hover:text-white"
           }`}
         >
           {item.toUpperCase()}
@@ -275,333 +168,310 @@ function LanguageSwitch({
   );
 }
 
+function DealCard({ deal, labels }: { deal: DealOption; labels: (typeof copy)[Language] }) {
+  return (
+    <a
+      href={deal.bookingLink.url}
+      target="_blank"
+      rel="noreferrer"
+      className="group grid gap-4 rounded-lg border border-white/12 bg-white/[0.07] p-4 text-left text-white shadow-sm backdrop-blur transition hover:border-[#f2c14e]/70 hover:bg-white/[0.11] sm:grid-cols-[1fr_auto]"
+    >
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-md bg-[#f2c14e] px-2 py-1 text-xs font-bold text-[#172624]">
+            {deal.destinationIata}
+          </span>
+          <p className="text-lg font-semibold">
+            {deal.destinationName}, {deal.countryName}
+          </p>
+        </div>
+        <p className="mt-2 text-sm text-white/62">
+          {deal.departureDate} - {deal.returnDate} - {deal.nights} {labels.nights} -{" "}
+          {deal.stops === 0 ? labels.direct : `${deal.stops} ${labels.stop}`}
+        </p>
+      </div>
+      <div className="flex items-end justify-between gap-5 sm:block sm:text-right">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-white/45">{labels.from}</p>
+          <p className="text-2xl font-semibold">{formatMoney(deal.price.amount, deal.price.currency)}</p>
+        </div>
+        <div className="mt-2 flex items-center justify-end gap-2 text-sm font-semibold text-[#f2c14e]">
+          {labels.score} {deal.score}
+          <ArrowUpRight size={17} className="transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </div>
+      </div>
+    </a>
+  );
+}
+
 export function TripPlanner() {
   const [language, setLanguage] = useState<Language>("en");
-  const [selectedFlightId, setSelectedFlightId] = useState<string | null>(null);
-  const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [airportQuery, setAirportQuery] = useState(defaultAirport.cityName);
+  const [airportResults, setAirportResults] = useState<AirportOption[]>([]);
+  const [selectedAirport, setSelectedAirport] = useState<AirportOption | null>(defaultAirport);
+  const [travelers, setTravelers] = useState(2);
+  const [budget, setBudget] = useState(1200);
+  const [airportOpen, setAirportOpen] = useState(false);
   const labels = copy[language];
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: zodResolver(tripSearchSchema),
-    defaultValues,
-  });
-
-  const searchMutation = useMutation({
-    mutationFn: searchTrips,
-    onSuccess(result) {
-      setSelectedFlightId(result.flightOptions[0]?.id ?? null);
-      setSelectedStayId(result.stayOptions[0]?.id ?? null);
-      setSaveMessage(null);
+  const airportMutation = useMutation({
+    mutationFn: fetchAirports,
+    onSuccess(results) {
+      setAirportResults(results);
+      setAirportOpen(true);
     },
   });
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (!currentUser) {
-        throw new Error(labels.saveLogin);
-      }
-
-      const response = await fetch("/api/trips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          search: form.getValues(),
-          selectedFlightId,
-          selectedStayId,
-        }),
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error ?? labels.saveFailed);
-      }
-      return payload as { id: string };
-    },
-    onSuccess() {
-      setSaveMessage(labels.saved);
-    },
-    onError(error) {
-      setSaveMessage(error instanceof Error ? error.message : labels.saveFailed);
-    },
+  const dealMutation = useMutation({
+    mutationFn: searchDeals,
   });
 
-  const result = searchMutation.data;
-  const selectedFlight = result?.flightOptions.find((flight) => flight.id === selectedFlightId);
-  const selectedStay = result?.stayOptions.find((stay) => stay.id === selectedStayId);
-  const total = useMemo(() => {
-    if (!selectedFlight || !selectedStay) return null;
-    return {
-      amount: selectedFlight.price.amount + selectedStay.price.amount,
-      currency: selectedFlight.price.currency,
-    };
-  }, [selectedFlight, selectedStay]);
+  useEffect(() => {
+    const query = airportQuery.trim();
 
-  const onSubmit = form.handleSubmit((values) => {
-    searchMutation.mutate(values);
-  });
-  const searchErrorMessage =
-    searchMutation.error instanceof Error
-      ? searchMutation.error.message
-      : searchMutation.error
-        ? "Search failed."
-        : null;
+    if (query.length < 2 || selectedAirport?.cityName === query || selectedAirport?.iataCode === query.toUpperCase()) {
+      return;
+    }
 
-  const searchForm = (
-    <form onSubmit={onSubmit} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-7">
-      <label className="block xl:col-span-2">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <MapPin size={15} /> {labels.from}
-        </span>
-        <input
-          {...form.register("origin")}
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-          placeholder="Zurich"
-        />
-      </label>
+    const timeout = window.setTimeout(() => {
+      airportMutation.mutate(query);
+    }, 220);
 
-      <label className="block xl:col-span-2">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <MapPin size={15} /> {labels.to}
-        </span>
-        <input
-          {...form.register("destination")}
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-          placeholder="Lisbon"
-        />
-      </label>
+    return () => window.clearTimeout(timeout);
+  }, [airportQuery, selectedAirport, airportMutation]);
 
-      <label className="block">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <CalendarDays size={15} /> {labels.start}
-        </span>
-        <input
-          {...form.register("startDate")}
-          type="date"
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-        />
-      </label>
+  const deals = dealMutation.data?.deals ?? [];
+  const modeLabel = dealMutation.data?.providerMetadata.mode === "live" ? labels.live : labels.demo;
+  const origin = dealMutation.data?.origin ?? selectedAirport;
+  const dealCount = useMemo(() => deals.length.toString().padStart(2, "0"), [deals.length]);
 
-      <label className="block">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <CalendarDays size={15} /> {labels.end}
-        </span>
-        <input
-          {...form.register("endDate")}
-          type="date"
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-        />
-      </label>
+  function submitSearch() {
+    if (!selectedAirport) {
+      dealMutation.reset();
+      return;
+    }
 
-      <label className="block">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <Users size={15} /> {labels.travelers}
-        </span>
-        <input
-          {...form.register("travelers")}
-          type="number"
-          min={1}
-          max={8}
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-        />
-      </label>
-
-      <label className="block">
-        <span className="flex items-center gap-2 text-sm font-medium text-muted">
-          <Baby size={15} /> {labels.kids}
-        </span>
-        <input
-          {...form.register("kids")}
-          type="number"
-          min={0}
-          max={6}
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-        />
-      </label>
-
-      <label className="block">
-        <span className="text-sm font-medium text-muted">{labels.budget}</span>
-        <input
-          {...form.register("budget")}
-          type="number"
-          className="mt-2 h-12 w-full rounded-lg border border-line bg-white px-3 outline-none transition focus:border-accent"
-        />
-      </label>
-
-      <div className="sm:col-span-2 xl:col-span-7">
-        {Object.values(form.formState.errors).length > 0 && (
-          <p className="mb-3 rounded-lg bg-rose px-3 py-2 text-sm text-[#60241d]">
-            {labels.checkFields}
-          </p>
-        )}
-        {searchErrorMessage && (
-          <p className="mb-3 rounded-lg border border-rose bg-rose p-3 text-sm">
-            {searchErrorMessage}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 font-semibold text-white transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={searchMutation.isPending}
-        >
-          {searchMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
-          {searchMutation.isPending ? labels.searching : labels.search}
-        </button>
-      </div>
-    </form>
-  );
+    dealMutation.mutate({
+      origin: selectedAirport,
+      travelers,
+      budget,
+    });
+  }
 
   return (
-    <main className="min-h-screen px-4 py-4 sm:px-6 lg:px-8">
-      <header className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+    <main className="relative min-h-screen overflow-hidden bg-[#071c1f] text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:72px_72px] opacity-30" />
+      <div className="absolute inset-x-0 top-0 h-56 bg-[linear-gradient(180deg,rgba(242,193,78,0.16),transparent)]" />
+
+      <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-lg bg-accent text-white shadow-sm">
+          <div className="flex size-11 items-center justify-center rounded-lg bg-[#f2c14e] text-[#102a2c] shadow-sm">
             <Sparkles size={22} />
           </div>
           <div>
-            <p className="text-sm font-medium text-muted">{labels.planLabel}</p>
-            <h1 className="text-2xl font-semibold tracking-normal">{labels.title}</h1>
+            <p className="text-sm font-semibold text-white/62">{labels.brand}</p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[#f2c14e]">Deal Radar</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <LanguageSwitch
-            language={language}
-            setLanguage={setLanguage}
-            label={labels.language}
-          />
+          <LanguageSwitch language={language} setLanguage={setLanguage} label={labels.language} />
           <AuthPanel language={language} onUserChange={setCurrentUser} />
         </div>
       </header>
 
-      {!result ? (
-        <section className="mx-auto flex min-h-[calc(100vh-96px)] max-w-6xl items-center py-8">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-6"
-          >
-            <p className="mb-5 text-sm font-medium text-muted">{labels.subtitle}</p>
-            {searchForm}
-          </motion.div>
-        </section>
-      ) : (
-        <div className="mx-auto mt-5 grid max-w-7xl gap-5 xl:grid-cols-[1fr_340px]">
-          <section className="space-y-5">
-            <div className="rounded-lg border border-line bg-surface p-4 shadow-sm sm:p-5">
-              {searchForm}
-            </div>
+      <section className="relative z-10 mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl items-center gap-8 px-4 pb-10 pt-2 sm:px-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.78fr)] lg:px-8">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="max-w-3xl"
+        >
+          <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-white/12 bg-white/8 px-3 py-2 text-sm font-semibold text-white/70 backdrop-blur">
+            <Radar size={16} className="text-[#f2c14e]" />
+            {labels.timeframeValue}
+          </div>
+          <h1 className="max-w-3xl text-4xl font-semibold leading-tight tracking-normal text-white sm:text-6xl">
+            {labels.title}
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-white/66 sm:text-lg">{labels.subtitle}</p>
 
-            <div className="rounded-lg border border-line bg-surface p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-muted">{labels.planningSurface}</p>
-                  <h2 className="text-2xl font-semibold tracking-normal">
-                    {labels.planningHeadline}
-                  </h2>
+          <div className="mt-8 rounded-lg border border-white/14 bg-[#0b282b]/82 p-4 shadow-2xl shadow-black/25 backdrop-blur-xl sm:p-5">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_150px]">
+              <div className="relative">
+                <label className="text-sm font-semibold text-white/70" htmlFor="airport-search">
+                  {labels.airport}
+                </label>
+                <div className="mt-2 flex h-14 items-center gap-3 rounded-lg border border-white/14 bg-white px-3 text-[#102a2c] shadow-sm focus-within:border-[#f2c14e]">
+                  <MapPin size={18} className="text-[#1a7472]" />
+                  <input
+                    id="airport-search"
+                    value={airportQuery}
+                    onChange={(event) => {
+                      setAirportQuery(event.target.value);
+                      setSelectedAirport(null);
+                    }}
+                    onFocus={() => setAirportOpen(airportResults.length > 0)}
+                    placeholder={labels.airportPlaceholder}
+                    className="h-full min-w-0 flex-1 bg-transparent outline-none"
+                  />
+                  {airportMutation.isPending && <Loader2 size={18} className="animate-spin text-[#1a7472]" />}
                 </div>
-                <span className="rounded-full bg-sky px-3 py-1 text-sm font-medium">
-                  {result.providerMetadata.mode === "live" ? labels.liveApis : labels.demoFallback}
-                </span>
+
+                {airportOpen && (
+                  <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-lg border border-white/14 bg-white p-2 text-[#102a2c] shadow-2xl">
+                    {airportResults.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-[#62716e]">{labels.noAirports}</p>
+                    ) : (
+                      airportResults.map((airport) => (
+                        <button
+                          key={airport.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAirport(airport);
+                            setAirportQuery(`${airport.cityName} (${airport.iataCode})`);
+                            setAirportOpen(false);
+                          }}
+                          className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-3 text-left transition hover:bg-[#e8f4ef]"
+                        >
+                          <span>
+                            <span className="block font-semibold">{airport.name}</span>
+                            <span className="text-sm text-[#62716e]">
+                              {airport.cityName}, {airport.countryName}
+                            </span>
+                          </span>
+                          <span className="rounded-md bg-[#102a2c] px-2 py-1 text-xs font-bold text-white">
+                            {airport.iataCode}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-lg border border-line bg-white/70 p-4">
-                <h3 className="mb-3 flex items-center gap-2 text-xl font-semibold">
-                  <Plane size={19} /> {labels.flights}
-                </h3>
-                <div className="space-y-3">
-                  {result.flightOptions.map((flight) => (
-                    <FlightCard
-                      key={flight.id}
-                      flight={flight}
-                      labels={labels}
-                      active={flight.id === selectedFlightId}
-                      onSelect={() => setSelectedFlightId(flight.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-line bg-white/70 p-4">
-                <h3 className="mb-3 flex items-center gap-2 text-xl font-semibold">
-                  <Hotel size={19} /> {labels.stays}
-                </h3>
-                <div className="space-y-3">
-                  {result.stayOptions.map((stay) => (
-                    <StayCard
-                      key={stay.id}
-                      stay={stay}
-                      labels={labels}
-                      active={stay.id === selectedStayId}
-                      onSelect={() => setSelectedStayId(stay.id)}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <aside className="rounded-lg border border-line bg-surface p-5 shadow-sm xl:sticky xl:top-4 xl:h-fit">
-            <h2 className="text-xl font-semibold">{labels.summary}</h2>
-            {selectedFlight && selectedStay && total ? (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-lg bg-sand p-4">
-                  <p className="text-sm font-medium text-muted">{labels.total}</p>
-                  <p className="text-3xl font-semibold">
-                    {formatMoney(total.amount, total.currency)}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-muted">{labels.selectedFlight}</p>
-                  <p className="font-semibold">{selectedFlight.airline}</p>
-                  <a
-                    href={selectedFlight.bookingLink.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-accent-strong"
+              <div>
+                <label className="text-sm font-semibold text-white/70">{labels.travelers}</label>
+                <div className="mt-2 flex h-14 items-center justify-between rounded-lg border border-white/14 bg-white px-2 text-[#102a2c] shadow-sm">
+                  <button
+                    type="button"
+                    aria-label="Decrease travelers"
+                    onClick={() => setTravelers((value) => Math.max(1, value - 1))}
+                    className="flex size-10 items-center justify-center rounded-md hover:bg-[#e8f4ef]"
                   >
-                    {selectedFlight.bookingLink.label} <ExternalLink size={15} />
-                  </a>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium text-muted">{labels.selectedStay}</p>
-                  <p className="font-semibold">{selectedStay.name}</p>
-                  <a
-                    href={selectedStay.bookingLink.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-accent-strong"
+                    <Minus size={17} />
+                  </button>
+                  <div className="flex items-center gap-2 font-semibold">
+                    <Users size={18} className="text-[#1a7472]" />
+                    {travelers}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Increase travelers"
+                    onClick={() => setTravelers((value) => Math.min(8, value + 1))}
+                    className="flex size-10 items-center justify-center rounded-md hover:bg-[#e8f4ef]"
                   >
-                    {selectedStay.bookingLink.label} <ExternalLink size={15} />
-                  </a>
+                    <Plus size={17} />
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => saveMutation.mutate()}
-                  disabled={saveMutation.isPending}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-accent bg-white px-4 font-semibold text-accent-strong transition hover:bg-teal-50 disabled:opacity-60"
-                >
-                  {saveMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                  {currentUser ? labels.save : labels.signInToSave}
-                </button>
-
-                {saveMessage && <p className="text-sm text-muted">{saveMessage}</p>}
-
-                <p className="text-xs leading-5 text-muted">{labels.handoff}</p>
               </div>
-            ) : (
-              <p className="mt-4 text-sm leading-6 text-muted">{labels.emptySummary}</p>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+              <div>
+                <div className="flex items-center justify-between gap-4">
+                  <label className="text-sm font-semibold text-white/70" htmlFor="budget">
+                    {labels.budget}
+                  </label>
+                  <span className="text-xl font-semibold text-[#f2c14e]">{formatMoney(budget, "CHF")}</span>
+                </div>
+                <input
+                  id="budget"
+                  type="range"
+                  min={300}
+                  max={5000}
+                  step={50}
+                  value={budget}
+                  onChange={(event) => setBudget(Number(event.target.value))}
+                  className="mt-3 h-2 w-full accent-[#f2c14e]"
+                />
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-white/54">
+                  <span className="rounded-md border border-white/12 px-2 py-1">{labels.timeframe}</span>
+                  <span className="rounded-md border border-white/12 px-2 py-1">{labels.timeframeValue}</span>
+                  {selectedAirport && (
+                    <span className="rounded-md border border-white/12 px-2 py-1">
+                      {labels.origin}: {selectedAirport.iataCode}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={submitSearch}
+                disabled={dealMutation.isPending || !selectedAirport}
+                className="flex h-12 items-center justify-center gap-2 rounded-lg bg-[#f2c14e] px-5 font-bold text-[#102a2c] shadow-lg shadow-black/20 transition hover:bg-[#ffcf63] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {dealMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+                {dealMutation.isPending ? labels.searching : labels.search}
+              </button>
+            </div>
+
+            {!selectedAirport && <p className="mt-3 text-sm text-[#f2c14e]">{labels.selectAirport}</p>}
+            {dealMutation.error instanceof Error && (
+              <p className="mt-3 rounded-lg border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-100">
+                {dealMutation.error.message}
+              </p>
             )}
-          </aside>
+          </div>
+        </motion.div>
+
+        <div className="relative min-h-[460px] overflow-hidden rounded-lg border border-white/12 bg-[#0d262a]/55 shadow-2xl shadow-black/20 lg:min-h-[680px]">
+          <DealGlobe origin={origin} deals={deals} />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 p-5">
+            <div className="rounded-lg border border-white/12 bg-[#071c1f]/76 p-4 backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/45">{labels.deals}</p>
+                  <p className="text-3xl font-semibold">{dealCount}</p>
+                </div>
+                <span className="rounded-md bg-white px-2 py-1 text-xs font-bold text-[#102a2c]">{modeLabel}</span>
+              </div>
+              <p className="mt-2 text-sm text-white/58">
+                {origin ? `${origin.cityName} (${origin.iataCode})` : labels.emptyDeals}
+              </p>
+            </div>
+          </div>
         </div>
-      )}
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="flex items-center gap-2 text-2xl font-semibold">
+            <Plane size={22} className="text-[#f2c14e]" />
+            {labels.deals}
+          </h2>
+          {dealMutation.data && (
+            <span className="rounded-md border border-white/12 bg-white/8 px-3 py-1 text-sm font-semibold text-white/62">
+              {modeLabel}
+            </span>
+          )}
+        </div>
+
+        {deals.length > 0 ? (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {deals.map((deal) => (
+              <DealCard key={deal.id} deal={deal} labels={labels} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-white/12 bg-white/[0.06] p-6 text-white/62">
+            {labels.emptyDeals}
+          </div>
+        )}
+      </section>
+      {currentUser && <span className="sr-only">Signed in as {currentUser.email}</span>}
     </main>
   );
 }

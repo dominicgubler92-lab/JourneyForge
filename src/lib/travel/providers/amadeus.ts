@@ -78,7 +78,6 @@ export const amadeusTravelProvider: TravelProvider = {
       destinationLocationCode: destinationCode,
       departureDate: input.startDate,
       adults: String(input.travelers),
-      ...(input.kids > 0 ? { children: String(input.kids) } : {}),
       max: "5",
       currencyCode: "CHF",
     });

@@ -55,3 +55,38 @@ export type TravelProvider = {
   searchStays(input: import("./schemas").TripSearchInput): Promise<StayOption[]>;
 };
 
+export type AirportOption = {
+  id: string;
+  iataCode: string;
+  name: string;
+  cityName: string;
+  countryName: string;
+  latitude: number;
+  longitude: number;
+  type: "airport" | "city";
+};
+
+export type DealOption = {
+  id: string;
+  provider: string;
+  originIata: string;
+  destinationIata: string;
+  destinationName: string;
+  countryName: string;
+  latitude: number;
+  longitude: number;
+  departureDate: string;
+  returnDate: string;
+  nights: number;
+  travelers: number;
+  stops: number;
+  price: Money;
+  score: number;
+  bookingLink: BookingLink;
+};
+
+export type DealSearchResult = {
+  origin: AirportOption;
+  deals: DealOption[];
+  providerMetadata: ProviderMetadata;
+};
