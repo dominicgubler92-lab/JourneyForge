@@ -3,6 +3,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { europeAirports } from "@/lib/travel/providers/airport-data";
 import type { AirportOption, DealOption } from "@/lib/travel/types";
 
 type DealGlobeProps = {
@@ -77,6 +78,7 @@ function Arc({ from, to }: { from: AirportOption; to: DealOption }) {
 function GlobeScene({ origin, deals }: DealGlobeProps) {
   const groupRef = useRef<THREE.Group>(null);
   const target = origin ? focusRotation(origin.latitude, origin.longitude) : { x: 0.18, y: -0.45 };
+  const previewAirports = deals.length === 0 ? europeAirports.slice(0, 12) : [];
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -111,6 +113,15 @@ function GlobeScene({ origin, deals }: DealGlobeProps) {
         </mesh>
         {origin && <Pin latitude={origin.latitude} longitude={origin.longitude} color="#f6efe1" scale={1.5} />}
         {origin && deals.map((deal) => <Arc key={`arc-${deal.id}`} from={origin} to={deal} />)}
+        {previewAirports.map((airport) => (
+          <Pin
+            key={`preview-${airport.iataCode}`}
+            latitude={airport.latitude}
+            longitude={airport.longitude}
+            color={airport.iataCode === origin?.iataCode ? "#f6efe1" : "#f2c14e"}
+            scale={airport.iataCode === origin?.iataCode ? 1.45 : 0.82}
+          />
+        ))}
         {deals.map((deal) => (
           <Pin
             key={deal.id}

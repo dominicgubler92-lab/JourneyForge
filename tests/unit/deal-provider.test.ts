@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { searchAirports } from "@/lib/travel/providers/airports";
 import { searchDeals } from "@/lib/travel/providers/deals";
 
 const origin = {
@@ -28,5 +29,16 @@ describe("searchDeals", () => {
     expect(result.deals[0].price.amount).toBeLessThanOrEqual(result.deals.at(-1)?.price.amount ?? 0);
     expect(result.deals[0]).not.toHaveProperty("stayOptions");
     expect(result.deals[0]).not.toHaveProperty("kids");
+  });
+});
+
+describe("searchAirports", () => {
+  it("finds airports through localized aliases", async () => {
+    await expect(searchAirports("zuerich")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ iataCode: "ZRH" })]),
+    );
+    await expect(searchAirports("genf")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ iataCode: "GVA" })]),
+    );
   });
 });

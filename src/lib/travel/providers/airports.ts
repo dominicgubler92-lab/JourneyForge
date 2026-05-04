@@ -19,17 +19,51 @@ type AmadeusLocation = {
   };
 };
 
+const queryAliases: Record<string, string[]> = {
+  zurich: ["zurich", "zuerich", "zrich", "zrh"],
+  geneva: ["geneva", "genf", "geneve", "gva"],
+  basel: ["basel", "basle", "bale", "bsl"],
+  vienna: ["vienna", "wien", "vie"],
+  milan: ["milan", "mailand", "milano", "mxp"],
+  rome: ["rome", "rom", "roma", "fco"],
+  lisbon: ["lisbon", "lissabon", "lisboa", "lis"],
+  prague: ["prague", "prag", "praha", "prg"],
+  copenhagen: ["copenhagen", "kopenhagen", "kobenhavn", "cph"],
+  paris: ["paris", "cdg"],
+  berlin: ["berlin", "ber"],
+  athens: ["athens", "athen", "ath"],
+  amsterdam: ["amsterdam", "ams"],
+  barcelona: ["barcelona", "bcn"],
+};
+
+function normalizeSearch(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ü/g, "u")
+    .replace(/ä/g, "a")
+    .replace(/ö/g, "o")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function searchableValues(airport: AirportOption) {
+  const cityKey = normalizeSearch(airport.cityName);
+  return [
+    airport.iataCode,
+    airport.name,
+    airport.cityName,
+    airport.countryName,
+    ...(queryAliases[cityKey] ?? []),
+  ].map(normalizeSearch);
+}
+
 function fallbackAirports(query: string) {
-  const normalized = query.trim().toLowerCase();
+  const normalized = normalizeSearch(query);
+
   return europeAirports
-    .filter((airport) =>
-      [
-        airport.iataCode,
-        airport.name,
-        airport.cityName,
-        airport.countryName,
-      ].some((value) => value.toLowerCase().includes(normalized)),
-    )
+    .filter((airport) => searchableValues(airport).some((value) => value.includes(normalized)))
     .slice(0, 8);
 }
 
@@ -82,5 +116,13 @@ export async function searchAirports(query: string) {
     .map(mapAmadeusLocation)
     .filter((airport): airport is AirportOption => Boolean(airport));
 
-  return airports.length > 0 ? airports : fallbackAirports(parsed.query);
+  const fallback = fallbackAirports(parsed.query);
+  const seen = new Set<string>();
+  const combined = [...airports, ...fallback].filter((airport) => {
+    if (seen.has(airport.iataCode)) return false;
+    seen.add(airport.iataCode);
+    return true;
+  });
+
+  return combined.length > 0 ? combined : fallback;
 }

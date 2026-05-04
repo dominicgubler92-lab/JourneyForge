@@ -222,6 +222,7 @@ export function TripPlanner() {
       setAirportOpen(true);
     },
   });
+  const mutateAirports = airportMutation.mutate;
 
   const dealMutation = useMutation({
     mutationFn: searchDeals,
@@ -235,15 +236,22 @@ export function TripPlanner() {
     }
 
     const timeout = window.setTimeout(() => {
-      airportMutation.mutate(query);
+      mutateAirports(query);
     }, 220);
 
     return () => window.clearTimeout(timeout);
-  }, [airportQuery, selectedAirport, airportMutation]);
+  }, [airportQuery, selectedAirport, mutateAirports]);
 
   const deals = dealMutation.data?.deals ?? [];
   const modeLabel = dealMutation.data?.providerMetadata.mode === "live" ? labels.live : labels.demo;
-  const origin = dealMutation.data?.origin ?? selectedAirport;
+  const origin = dealMutation.data?.origin ?? selectedAirport ?? defaultAirport;
+  const airportQueryLength = airportQuery.trim().length;
+  const shouldShowNoAirports =
+    airportOpen &&
+    airportQueryLength >= 2 &&
+    !airportMutation.isPending &&
+    airportMutation.data !== undefined &&
+    airportResults.length === 0;
   const dealCount = useMemo(() => deals.length.toString().padStart(2, "0"), [deals.length]);
 
   function submitSearch() {
@@ -321,7 +329,7 @@ export function TripPlanner() {
 
                 {airportOpen && (
                   <div className="absolute z-30 mt-2 max-h-72 w-full overflow-auto rounded-lg border border-white/14 bg-white p-2 text-[#102a2c] shadow-2xl">
-                    {airportResults.length === 0 ? (
+                    {shouldShowNoAirports ? (
                       <p className="px-3 py-2 text-sm text-[#62716e]">{labels.noAirports}</p>
                     ) : (
                       airportResults.map((airport) => (
