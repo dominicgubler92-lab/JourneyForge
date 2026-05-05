@@ -29,7 +29,8 @@ The goal is to make early travel planning feel exploratory and practical: choose
 - TanStack Query, React Hook Form, and Zod
 - Supabase Auth and Postgres for saved trips
 - Vercel deployment target
-- Amadeus airport and flight inspiration adapters with demo fallbacks
+- Skyscanner flight provider scaffold with demo fallbacks
+- Amadeus adapter kept as a legacy fallback while self-service access is phased out
 
 ## Getting Started
 
@@ -48,9 +49,14 @@ Optional environment variables:
 cp .env.example .env.local
 ```
 
-Add Supabase credentials to enable optional authentication. Add Amadeus credentials to enable live airport and flight inspiration searches; without them JourneyForge uses normalized demo data through the same provider interface.
+Add Supabase credentials to enable optional authentication.
 
-`AMADEUS_BASE_URL` defaults to `https://test.api.amadeus.com`. Use the production Amadeus base URL only after production access is approved.
+Add Skyscanner partner API credentials to enable live indicative flight prices:
+
+- `SKYSCANNER_API_KEY`
+- `SKYSCANNER_BASE_URL=https://partners.api.skyscanner.net`
+
+Without Skyscanner access, JourneyForge uses normalized demo deal data through the same provider interface. The Amadeus adapter remains available as a legacy fallback, but Amadeus self-service access is being retired on 2026-07-17.
 
 ## Authentication
 

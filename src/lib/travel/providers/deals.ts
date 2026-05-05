@@ -2,6 +2,7 @@ import { dealSearchSchema, type DealSearchInput } from "@/lib/travel/schemas";
 import type { DealOption, DealSearchResult, Money } from "@/lib/travel/types";
 import { amadeusFetch, getAmadeusToken } from "@/lib/travel/providers/amadeus-client";
 import { europeAirports, findAirportByIata } from "@/lib/travel/providers/airport-data";
+import { hasSkyscannerCredentials, skyscannerFetch } from "@/lib/travel/providers/skyscanner-client";
 
 type AmadeusDestination = {
   origin?: string;
@@ -10,6 +11,42 @@ type AmadeusDestination = {
   returnDate?: string;
   price?: {
     total?: string;
+  };
+};
+
+type SkyscannerQuote = {
+  minPrice?: {
+    amount?: string | number;
+    unit?: string;
+  };
+  price?: {
+    amount?: string | number;
+    unit?: string;
+  };
+  outboundLeg?: {
+    originPlaceId?: string | { iata?: string; entityId?: string };
+    destinationPlaceId?: string | { iata?: string; entityId?: string };
+    departureDateTime?: { year?: number; month?: number; day?: number };
+  };
+  isDirect?: boolean;
+};
+
+type SkyscannerPlace = {
+  iata?: string;
+  name?: string;
+  coordinates?: {
+    latitude?: number;
+    longitude?: number;
+  };
+};
+
+type SkyscannerIndicativeResponse = {
+  quotes?: SkyscannerQuote[];
+  content?: {
+    results?: {
+      quotes?: Record<string, SkyscannerQuote>;
+      places?: Record<string, SkyscannerPlace>;
+    };
   };
 };
 
@@ -82,6 +119,127 @@ function makeDeal(
   };
 }
 
+function dateParts(date: Date) {
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+}
+
+function numericPrice(value: unknown) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return Number(value);
+  return 0;
+}
+
+function extractSkyscannerQuotes(payload: SkyscannerIndicativeResponse) {
+  if (Array.isArray(payload.quotes)) {
+    return payload.quotes;
+  }
+
+  const nested = payload.content?.results?.quotes;
+  return nested ? Object.values(nested) : [];
+}
+
+function skyscannerPlaceId(value: string | { iata?: string; entityId?: string } | undefined) {
+  if (typeof value === "string") return value;
+  return value?.entityId;
+}
+
+function skyscannerQuoteIata(quote: SkyscannerQuote, payload: SkyscannerIndicativeResponse) {
+  const destination = quote.outboundLeg?.destinationPlaceId;
+
+  if (typeof destination === "object" && destination?.iata) {
+    return destination.iata;
+  }
+
+  const placeId = skyscannerPlaceId(destination);
+  return placeId ? payload.content?.results?.places?.[placeId]?.iata : undefined;
+}
+
+function skyscannerQuoteDate(quote: SkyscannerQuote, fallbackIndex: number) {
+  const date = quote.outboundLeg?.departureDateTime;
+
+  if (date?.year && date.month && date.day) {
+    return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+  }
+
+  return iso(addDays(new Date(), 21 + fallbackIndex * 4));
+}
+
+async function skyscannerIndicativeDeals(input: DealSearchInput) {
+  const start = addDays(new Date(), 1);
+  const end = addDays(start, 90);
+  const response = await skyscannerFetch("/apiservices/v3/flights/indicative/search", {
+    method: "POST",
+    cache: "no-store",
+    body: JSON.stringify({
+      query: {
+        currency: "CHF",
+        locale: "en-GB",
+        market: "CH",
+        queryLegs: [
+          {
+            originPlace: {
+              queryPlace: { iata: input.origin.iataCode },
+            },
+            destinationPlace: {
+              anywhere: true,
+            },
+            dateRange: {
+              startDate: dateParts(start),
+              endDate: {
+                year: end.getUTCFullYear(),
+                month: end.getUTCMonth() + 1,
+              },
+            },
+          },
+        ],
+        dateTimeGroupingType: "DATE_TIME_GROUPING_TYPE_BY_MONTH",
+      },
+    }),
+  });
+
+  if (!response?.ok) {
+    return [];
+  }
+
+  const payload = (await response.json()) as SkyscannerIndicativeResponse;
+  const quotes = extractSkyscannerQuotes(payload);
+
+  return quotes
+    .map((quote, index) => {
+      const destinationIata = skyscannerQuoteIata(quote, payload);
+      const price = numericPrice(quote.minPrice?.amount ?? quote.price?.amount);
+
+      if (!destinationIata || price <= 0) {
+        return null;
+      }
+
+      const departure = skyscannerQuoteDate(quote, index);
+      const ret = iso(addDays(new Date(`${departure}T00:00:00Z`), input.minNights + (index % 5)));
+      const deal = makeDeal(input, destinationIata, price, index, departure, ret);
+
+      return deal
+        ? {
+            ...deal,
+            provider: "Skyscanner Indicative Prices",
+            stops: quote.isDirect ? 0 : deal.stops,
+            bookingLink: {
+              ...deal.bookingLink,
+              label: "Open Skyscanner search",
+              provider: "Skyscanner",
+              url: `https://www.skyscanner.net/transport/flights/${input.origin.iataCode.toLowerCase()}/${destinationIata.toLowerCase()}/${departure.replaceAll("-", "")}/`,
+            },
+          }
+        : null;
+    })
+    .filter((deal): deal is DealOption => Boolean(deal))
+    .sort((a, b) => a.price.amount - b.price.amount)
+    .slice(0, 8);
+}
+
 function demoDeals(input: DealSearchInput): DealSearchResult {
   const seed = input.origin.iataCode.charCodeAt(0) + input.origin.iataCode.charCodeAt(1);
   const candidates = europeAirports
@@ -104,12 +262,20 @@ function demoDeals(input: DealSearchInput): DealSearchResult {
       mode: "demo",
       providers: ["JourneyForge demo fares"],
       generatedAt: new Date().toISOString(),
-      notes: ["Demo data is used when Amadeus credentials or live inspiration results are unavailable."],
+      notes: ["Demo data is used when Skyscanner access or live indicative results are unavailable."],
     },
   };
 }
 
 async function liveDeals(input: DealSearchInput): Promise<DealOption[]> {
+  if (hasSkyscannerCredentials()) {
+    const skyscannerDeals = await skyscannerIndicativeDeals(input);
+
+    if (skyscannerDeals.length > 0) {
+      return skyscannerDeals;
+    }
+  }
+
   const token = await getAmadeusToken();
 
   if (!token) {
@@ -168,9 +334,13 @@ export async function searchDeals(input: DealSearchInput): Promise<DealSearchRes
     deals,
     providerMetadata: {
       mode: "live",
-      providers: ["Amadeus Flight Inspiration"],
+      providers: Array.from(new Set(deals.map((deal) => deal.provider))),
       generatedAt: new Date().toISOString(),
-      notes: ["Prices are inspiration fares and may change on provider pages."],
+      notes: [
+        deals.some((deal) => deal.provider.includes("Skyscanner"))
+          ? "Skyscanner indicative prices are cached estimates and should be confirmed on provider pages."
+          : "Prices are inspiration fares and may change on provider pages.",
+      ],
     },
   };
 }

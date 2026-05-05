@@ -23,13 +23,14 @@ import type { AirportOption, DealOption, DealSearchResult } from "@/lib/travel/t
 
 type Language = "en" | "de";
 type ProviderStatus = {
+  activeProvider?: "skyscanner" | "amadeus" | "demo";
   activeModeHint: "live-ready" | "demo-fallback";
   providers: Array<{
     id: string;
     label: string;
     configured: boolean;
     environment: "test" | "production" | "custom";
-    modeHint: "live-ready" | "demo-fallback";
+    modeHint: "live-ready" | "demo-fallback" | "needs-approval" | "legacy-ready" | "legacy-disabled";
   }>;
 };
 
@@ -68,9 +69,10 @@ const copy = {
     score: "Score",
     live: "Live",
     demo: "Demo",
-    providerReady: "Amadeus ready",
+    providerReady: "Skyscanner ready",
+    providerLegacy: "Amadeus legacy",
     providerDemo: "Demo fallback",
-    demoCaveat: "Demo fallback is sorted by estimated sample fares. Add Amadeus credentials for live inspiration prices.",
+    demoCaveat: "Demo fallback is sorted by estimated sample fares. Add Skyscanner API access for live indicative prices.",
     cheapestNow: "Cheapest visible deals",
     language: "Language",
     origin: "Origin locked",
@@ -98,9 +100,10 @@ const copy = {
     score: "Score",
     live: "Live",
     demo: "Demo",
-    providerReady: "Amadeus bereit",
+    providerReady: "Skyscanner bereit",
+    providerLegacy: "Amadeus Legacy",
     providerDemo: "Demo-Fallback",
-    demoCaveat: "Demo-Fallback ist nach geschaetzten Beispieldaten sortiert. Fuer echte Inspiration-Preise Amadeus-Zugangsdaten setzen.",
+    demoCaveat: "Demo-Fallback ist nach geschaetzten Beispieldaten sortiert. Fuer echte Skyscanner-Preise API-Zugang setzen.",
     cheapestNow: "Guenstigste sichtbare Deals",
     language: "Sprache",
     origin: "Start fixiert",
@@ -278,7 +281,14 @@ export function TripPlanner() {
 
   const deals = dealMutation.data?.deals ?? [];
   const modeLabel = dealMutation.data?.providerMetadata.mode === "live" ? labels.live : labels.demo;
+  const activeProvider = providerStatusQuery.data?.activeProvider;
   const providerIsReady = providerStatusQuery.data?.activeModeHint === "live-ready";
+  const providerLabel =
+    activeProvider === "skyscanner"
+      ? labels.providerReady
+      : activeProvider === "amadeus"
+        ? labels.providerLegacy
+        : labels.providerDemo;
   const origin = dealMutation.data?.origin ?? selectedAirport ?? defaultAirport;
   const airportQueryLength = airportQuery.trim().length;
   const shouldShowNoAirports =
@@ -452,7 +462,7 @@ export function TripPlanner() {
                         : "border-white/12 text-white/54"
                     }`}
                   >
-                    {providerIsReady ? labels.providerReady : labels.providerDemo}
+                    {providerLabel}
                   </span>
                   {selectedAirport && (
                     <span className="rounded-md border border-white/12 px-2 py-1">
